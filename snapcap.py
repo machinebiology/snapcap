@@ -64,7 +64,7 @@ def show_toast(filepath, duration_ms=2000, position="bottom", thumbnail=False):
     root = tk.Tk()
     root.overrideredirect(True)        # no title bar / borders
     root.attributes("-topmost", True)  # always on top
-    root.attributes("-alpha", 0.88)    # slight transparency
+    root.attributes("-alpha", 1.00)    # no transparency
 
     filename = os.path.basename(filepath)
 
