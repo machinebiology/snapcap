@@ -1,4 +1,5 @@
 import os
+import argparse
 import ctypes
 import datetime
 import tomllib
@@ -104,8 +105,23 @@ def show_toast(filepath, duration_ms=2000, position="bottom"):
     root.mainloop()
 
 
+def set_output_folder(folder):
+    """Update output_folder in config.toml."""
+    escaped = folder.replace("\\", "\\\\").replace("'", "\\'")
+    CONFIG_PATH.write_text(f"output_folder = '{escaped}'\n")
+
+
 if __name__ == "__main__":
-    config = load_config()
-    saved_to = take_screenshot(config["output_folder"])
-    print(f"Screenshot saved: {saved_to}")
-    show_toast(saved_to)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-folder")
+    args = parser.parse_args()
+
+    if args.output_folder:
+        set_output_folder(args.output_folder)
+        print(f"output folder set to: {args.output_folder}")
+    else:
+        config = load_config()
+        saved_to = take_screenshot(config["output_folder"])
+        print(f"Screenshot saved: {saved_to}")
+        show_toast(saved_to)
+
