@@ -69,4 +69,5 @@ With `capture_mode = 'rect'`, snapcap dims the screen and lets you drag out a se
 ## Roadmap
 
 - Optional ability to copy the image to the clipboard, either exclusively or in addition to saving to disk.
+- OCR
 - Support for Linux and macOS
