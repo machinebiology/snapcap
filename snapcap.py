@@ -7,7 +7,7 @@ import tkinter as tk
 from ctypes import wintypes
 from pathlib import Path
 
-from PIL import ImageGrab
+from PIL import Image, ImageGrab, ImageTk
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config.toml"
 
@@ -51,7 +51,7 @@ def take_screenshot(output_folder, capture_mode="window"):
     return filepath
 
 
-def show_toast(filepath, duration_ms=2000, position="bottom"):
+def show_toast(filepath, duration_ms=2000, position="bottom", thumbnail=False):
     """
     Show a small auto-dismissing notification banner.
     Clicking it opens the screenshot; it dismisses itself after duration_ms.
@@ -72,9 +72,7 @@ def show_toast(filepath, duration_ms=2000, position="bottom"):
         os.startfile(filepath)
         root.destroy()
 
-    btn = tk.Button(
-        root,
-        text=f"\u2714  Screenshot saved \u2014 {filename}",
+    btn_kwargs = dict(
         command=open_and_dismiss,
         bg="#1e1e1e",
         fg="#ffffff",
@@ -87,6 +85,15 @@ def show_toast(filepath, duration_ms=2000, position="bottom"):
         cursor="hand2",
         relief="flat",
     )
+    text = f"\u2714  Screenshot saved \u2014 {filename}"
+    if thumbnail:
+        img = Image.open(filepath)
+        img.thumbnail((96, 96))
+        photo = ImageTk.PhotoImage(img)
+        btn = tk.Button(root, text=text, image=photo, compound="left", **btn_kwargs)
+        btn.image = photo  # keep reference
+    else:
+        btn = tk.Button(root, text=text, **btn_kwargs)
     btn.pack()
 
     root.update_idletasks()            # compute widget size
@@ -142,7 +149,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-folder")
     parser.add_argument("--capture-mode", choices=["window", "screen"])
-    parser.add_argument("--notification-mode", choices=["toast", "beep", "none"])
+    parser.add_argument(
+        "--notification-mode",
+        choices=["toast", "toast_thumbnail", "beep", "none"],
+    )
     parser.add_argument("--init", action="store_true")
     args = parser.parse_args()
 
@@ -178,4 +188,6 @@ if __name__ == "__main__":
             play_beep()
         elif notification_mode == "toast":
             show_toast(saved_to)
+        elif notification_mode == "toast_thumbnail":
+            show_toast(saved_to, thumbnail=True)
 
