@@ -29,7 +29,7 @@ Designed for optimal use with a Stream Deck or similar macro utility that can pr
 
 ```bash
 uv sync
-python snapcap.py --init
+uv run snapcap.py --init
 ```
 
 ## Usage
@@ -37,7 +37,7 @@ python snapcap.py --init
 Take a screenshot using current config:
 
 ```bash
-python snapcap.py
+uv run snapcap.py
 ```
 
 ### Filename prefixes
@@ -47,7 +47,7 @@ Organize different screenshot series by setting a prefix that gets prepended to 
 To be prompted for a new prefix that will be reused for all subsequent captures until changed, add the `--prompt-prefix` argument:
 
 ```bash
-python snapcap.py --prompt-prefix
+uv run snapcap.py --prompt-prefix
 ```
 
 Leave the prompt blank to disable the prefix. You can also edit `filename_prefix` directly in `config.toml`.
@@ -55,9 +55,9 @@ Leave the prompt blank to disable the prefix. You can also edit `filename_prefix
 ### Configure
 
 ```bash
-python snapcap.py --output-folder C:\screenshots
-python snapcap.py --capture-mode window         # window | screen | rect
-python snapcap.py --notification-mode toast     # toast | toast_thumbnail | beep | none
+uv run snapcap.py --output-folder C:\screenshots
+uv run snapcap.py --capture-mode window         # window | screen | rect
+uv run snapcap.py --notification-mode toast     # toast | toast_thumbnail | beep | none
 ```
 
 Config-changing flags do not take a screenshot.
