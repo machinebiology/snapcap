@@ -113,15 +113,11 @@ def init_config():
     return contents
 
 
-def _toml_escape(value):
-    return value.replace("\\", "\\\\").replace("'", "\\'")
-
-
 def update_config(**updates):
     """Update keys in config.toml, preserving other values."""
     config = load_config() if CONFIG_PATH.exists() else {}
     config.update(updates)
-    lines = [f"{k} = '{_toml_escape(str(v))}'" for k, v in config.items()]
+    lines = [f"{k} = '{v}'" for k, v in config.items()]
     CONFIG_PATH.write_text("\n".join(lines) + "\n")
 
 
