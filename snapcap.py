@@ -37,6 +37,7 @@ def take_screenshot(output_folder, capture_mode="window"):
     """
     os.makedirs(output_folder, exist_ok=True)
 
+    # bbox=None tells ImageGrab to capture the full virtual screen
     bbox = get_active_window_rect() if capture_mode == "window" else None
 
     # Timestamp format: YYYY-MM-DD_HH-MM-SS-sss
@@ -45,6 +46,7 @@ def take_screenshot(output_folder, capture_mode="window"):
     filename = f"{timestamp}.png"
     filepath = os.path.join(output_folder, filename)
 
+    # all_screens=True ensures multi-monitor setups are handled correctly
     screenshot = ImageGrab.grab(bbox=bbox, all_screens=True)
     screenshot.save(filepath, format="PNG")
 
@@ -124,6 +126,8 @@ def update_config(**updates):
     """Update keys in config.toml, preserving other values."""
     config = load_config() if CONFIG_PATH.exists() else {}
     config.update(updates)
+    # Single-quoted TOML strings are literal — backslashes (e.g. Windows paths)
+    # are written as-is, so values must not contain single quotes.
     lines = [f"{k} = '{v}'" for k, v in config.items()]
     CONFIG_PATH.write_text("\n".join(lines) + "\n")
 
@@ -174,6 +178,7 @@ if __name__ == "__main__":
         print(f"notification mode set to: {args.notification_mode}")
         config_changed = True
 
+    # Config-changing args suppress the screenshot; otherwise capture as normal.
     if not config_changed:
         if not CONFIG_PATH.exists():
             contents = init_config()
