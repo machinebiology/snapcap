@@ -135,7 +135,7 @@ def set_notification_mode(mode):
 
 def play_beep():
     import winsound
-    winsound.Beep(1000, 200)
+    winsound.Beep(1000, 150)
 
 
 if __name__ == "__main__":
