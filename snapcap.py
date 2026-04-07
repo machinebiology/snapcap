@@ -30,14 +30,14 @@ def get_active_window_rect():
     return rect.left, rect.top, rect.right, rect.bottom
 
 
-def take_screenshot(output_folder):
+def take_screenshot(output_folder, capture_mode="window"):
     """
-    Capture the active window and save it as a timestamped PNG.
+    Capture the active window or full screen and save it as a timestamped PNG.
     Returns the full path of the saved file.
     """
     os.makedirs(output_folder, exist_ok=True)
 
-    bbox = get_active_window_rect()
+    bbox = get_active_window_rect() if capture_mode == "window" else None
 
     # Timestamp format: YYYY-MM-DD_HH-MM-SS-sss
     now = datetime.datetime.now()
@@ -113,30 +113,55 @@ def init_config():
     return contents
 
 
+def _toml_escape(value):
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def update_config(**updates):
+    """Update keys in config.toml, preserving other values."""
+    config = load_config() if CONFIG_PATH.exists() else {}
+    config.update(updates)
+    lines = [f"{k} = '{_toml_escape(str(v))}'" for k, v in config.items()]
+    CONFIG_PATH.write_text("\n".join(lines) + "\n")
+
+
 def set_output_folder(folder):
-    """Update output_folder in config.toml."""
-    escaped = folder.replace("\\", "\\\\").replace("'", "\\'")
-    CONFIG_PATH.write_text(f"output_folder = '{escaped}'\n")
+    update_config(output_folder=folder)
+
+
+def set_capture_mode(mode):
+    update_config(capture_mode=mode)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-folder")
+    parser.add_argument("--capture-mode", choices=["window", "screen"])
     parser.add_argument("--init", action="store_true")
     args = parser.parse_args()
 
+    config_changed = False
     if args.init:
         contents = init_config()
         print(f"Script configured with:\n{contents}")
-    elif args.output_folder:
+        config_changed = True
+    if args.output_folder:
         set_output_folder(args.output_folder)
         print(f"output folder set to: {args.output_folder}")
-    else:
+        config_changed = True
+    if args.capture_mode:
+        set_capture_mode(args.capture_mode)
+        print(f"capture mode set to: {args.capture_mode}")
+        config_changed = True
+
+    if not config_changed:
         if not CONFIG_PATH.exists():
             contents = init_config()
             print(f"No config found. Initialized config.toml with:\n{contents}")
         config = load_config()
-        saved_to = take_screenshot(config["output_folder"])
+        saved_to = take_screenshot(
+            config["output_folder"], config.get("capture_mode", "window")
+        )
         print(f"Screenshot saved: {saved_to}")
         show_toast(saved_to)
 
