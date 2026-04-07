@@ -66,17 +66,6 @@ Config-changing flags do not take a screenshot.
 
 With `capture_mode = 'rect'`, snapcap dims the screen and lets you drag out a selection rectangle with the mouse. Release the mouse button to capture it, or press Escape to cancel.
 
-## Config
-
-`config.toml`:
-
-```toml
-output_folder = 'C:\screenshots'
-capture_mode = 'window'
-notification_mode = 'toast'
-filename_prefix = ''
-```
-
 ## Roadmap
 
 - Optional ability to copy the image to the clipboard, either exclusively or in addition to saving to disk.
