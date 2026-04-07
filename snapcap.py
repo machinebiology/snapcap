@@ -30,26 +30,25 @@ def get_active_window_rect():
     return rect.left, rect.top, rect.right, rect.bottom
 
 
-def take_screenshot(output_folder, capture_mode="window"):
-    """
-    Capture the active window or full screen and save it as a timestamped PNG.
-    Returns the full path of the saved file.
-    """
-    os.makedirs(output_folder, exist_ok=True)
-
+def capture_screenshot(capture_mode="window"):
+    """Capture the active window or full screen and return a PIL Image."""
     # bbox=None tells ImageGrab to capture the full virtual screen
     bbox = get_active_window_rect() if capture_mode == "window" else None
+    # all_screens=True ensures multi-monitor setups are handled correctly
+    return ImageGrab.grab(bbox=bbox, all_screens=True)
+
+
+def save_screenshot(image, output_folder, filename_prefix=""):
+    """Save the image as a timestamped PNG and return the full path."""
+    os.makedirs(output_folder, exist_ok=True)
 
     # Timestamp format: YYYY-MM-DD_HH-MM-SS-sss
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-") + f"{now.microsecond // 1000:03d}"
-    filename = f"{timestamp}.png"
+    filename = f"{filename_prefix}_{timestamp}.png" if filename_prefix else f"{timestamp}.png"
     filepath = os.path.join(output_folder, filename)
 
-    # all_screens=True ensures multi-monitor setups are handled correctly
-    screenshot = ImageGrab.grab(bbox=bbox, all_screens=True)
-    screenshot.save(filepath, format="PNG")
-
+    image.save(filepath, format="PNG")
     return filepath
 
 
@@ -144,6 +143,23 @@ def set_notification_mode(mode):
     update_config(notification_mode=mode)
 
 
+def set_filename_prefix(prefix):
+    update_config(filename_prefix=prefix)
+
+
+def prompt_filename_prefix(default=""):
+    """Show a small modal asking the user for a new filename prefix."""
+    from tkinter import simpledialog
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    result = simpledialog.askstring(
+        "snapcap", "Filename prefix:", initialvalue=default, parent=root
+    )
+    root.destroy()
+    return result if result is not None else default
+
+
 def play_beep():
     import winsound
     winsound.Beep(1000, 150)
@@ -158,6 +174,7 @@ if __name__ == "__main__":
         choices=["toast", "toast_thumbnail", "beep", "none"],
     )
     parser.add_argument("--init", action="store_true")
+    parser.add_argument("--prompt-prefix", action="store_true")
     args = parser.parse_args()
 
     config_changed = False
@@ -184,9 +201,13 @@ if __name__ == "__main__":
             contents = init_config()
             print(f"No config found. Initialized config.toml with:\n{contents}")
         config = load_config()
-        saved_to = take_screenshot(
-            config["output_folder"], config.get("capture_mode", "window")
-        )
+        # Capture first so the prompt dialog doesn't appear in the screenshot.
+        image = capture_screenshot(config.get("capture_mode", "window"))
+        prefix = config.get("filename_prefix", "")
+        if args.prompt_prefix:
+            prefix = prompt_filename_prefix(default=prefix)
+            set_filename_prefix(prefix)
+        saved_to = save_screenshot(image, config["output_folder"], prefix)
         print(f"Screenshot saved: {saved_to}")
         notification_mode = config.get("notification_mode", "toast")
         if notification_mode == "beep":

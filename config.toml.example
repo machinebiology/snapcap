@@ -1,3 +1,4 @@
 output_folder = 'C:\screenshots'
 capture_mode = 'window'
 notification_mode = 'toast'
+filename_prefix = ''
