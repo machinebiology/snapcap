@@ -85,6 +85,7 @@ def select_rect_interactively(full_image):
             state["rect_id"] = canvas.create_rectangle(lx, ty, rx, by, outline="white", width=1)
         else:
             canvas.coords(state["rect_id"], lx, ty, rx, by)
+        canvas.tag_raise(state["rect_id"])
 
     def on_release(event):
         if state["start"] is None:
