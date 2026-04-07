@@ -105,6 +105,14 @@ def show_toast(filepath, duration_ms=2000, position="bottom"):
     root.mainloop()
 
 
+def init_config():
+    """Copy config.toml.example to config.toml and return its contents."""
+    example = CONFIG_PATH.with_suffix(".toml.example")
+    contents = example.read_text()
+    CONFIG_PATH.write_text(contents)
+    return contents
+
+
 def set_output_folder(folder):
     """Update output_folder in config.toml."""
     escaped = folder.replace("\\", "\\\\").replace("'", "\\'")
@@ -118,14 +126,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.init:
-        example = CONFIG_PATH.with_suffix(".toml.example")
-        contents = example.read_text()
-        CONFIG_PATH.write_text(contents)
+        contents = init_config()
         print(f"Script configured with:\n{contents}")
     elif args.output_folder:
         set_output_folder(args.output_folder)
         print(f"output folder set to: {args.output_folder}")
     else:
+        if not CONFIG_PATH.exists():
+            contents = init_config()
+            print(f"No config found. Initialized config.toml with:\n{contents}")
         config = load_config()
         saved_to = take_screenshot(config["output_folder"])
         print(f"Screenshot saved: {saved_to}")
