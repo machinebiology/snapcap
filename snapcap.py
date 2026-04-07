@@ -114,9 +114,15 @@ def set_output_folder(folder):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-folder")
+    parser.add_argument("--init", action="store_true")
     args = parser.parse_args()
 
-    if args.output_folder:
+    if args.init:
+        example = CONFIG_PATH.with_suffix(".toml.example")
+        contents = example.read_text()
+        CONFIG_PATH.write_text(contents)
+        print(f"Script configured with:\n{contents}")
+    elif args.output_folder:
         set_output_folder(args.output_folder)
         print(f"output folder set to: {args.output_folder}")
     else:
