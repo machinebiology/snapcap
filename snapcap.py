@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-folder")
     parser.add_argument("--capture-mode", choices=["window", "screen"])
-    parser.add_argument("--notification-mode", choices=["toast", "beep"])
+    parser.add_argument("--notification-mode", choices=["toast", "beep", "none"])
     parser.add_argument("--init", action="store_true")
     args = parser.parse_args()
 
@@ -173,8 +173,9 @@ if __name__ == "__main__":
             config["output_folder"], config.get("capture_mode", "window")
         )
         print(f"Screenshot saved: {saved_to}")
-        if config.get("notification_mode", "toast") == "beep":
+        notification_mode = config.get("notification_mode", "toast")
+        if notification_mode == "beep":
             play_beep()
-        else:
+        elif notification_mode == "toast":
             show_toast(saved_to)
 
