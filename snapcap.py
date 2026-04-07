@@ -306,4 +306,3 @@ if __name__ == "__main__":
             show_toast(saved_to)
         elif notification_mode == "toast_thumbnail":
             show_toast(saved_to, thumbnail=True)
-
