@@ -129,10 +129,20 @@ def set_capture_mode(mode):
     update_config(capture_mode=mode)
 
 
+def set_notification_mode(mode):
+    update_config(notification_mode=mode)
+
+
+def play_beep():
+    import winsound
+    winsound.Beep(1000, 200)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-folder")
     parser.add_argument("--capture-mode", choices=["window", "screen"])
+    parser.add_argument("--notification-mode", choices=["toast", "beep"])
     parser.add_argument("--init", action="store_true")
     args = parser.parse_args()
 
@@ -149,6 +159,10 @@ if __name__ == "__main__":
         set_capture_mode(args.capture_mode)
         print(f"capture mode set to: {args.capture_mode}")
         config_changed = True
+    if args.notification_mode:
+        set_notification_mode(args.notification_mode)
+        print(f"notification mode set to: {args.notification_mode}")
+        config_changed = True
 
     if not config_changed:
         if not CONFIG_PATH.exists():
@@ -159,5 +173,8 @@ if __name__ == "__main__":
             config["output_folder"], config.get("capture_mode", "window")
         )
         print(f"Screenshot saved: {saved_to}")
-        show_toast(saved_to)
+        if config.get("notification_mode", "toast") == "beep":
+            play_beep()
+        else:
+            show_toast(saved_to)
 
