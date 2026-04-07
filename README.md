@@ -68,7 +68,9 @@ With `capture_mode = 'rect'`, snapcap dims the screen and lets you drag out a se
 
 ## Roadmap
 
-- Optional ability to copy the image to the clipboard, either exclusively or in addition to saving to disk.
+- Add optional ability to copy the image to the clipboard, either exclusively or in addition to saving to disk.
 - Add table of recommended commands and configuration for Stream Deck / macro utility
+- Add ability to specify filename prefix by command line arg
 - OCR
 - Support for Linux and macOS
+- Add ability to specify a subfolder in addition to the main folder, either by dialog or command-line arg
