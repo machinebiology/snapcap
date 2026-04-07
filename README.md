@@ -1,8 +1,10 @@
 # snapcap
 
-A lightweight Windows screenshot utility. Captures the active window (or full screen), saves it as a timestamped PNG, and shows a clickable toast notification.
+A Windows screenshot utility designed for automatically saving timestamped images with optional prefixes.
 
-Designed for use with a Stream Deck or similar macro utilities.
+Can capture the active window, the full screen, or an ad-hoc rectangle.
+
+Designed for optimal use with a Stream Deck or similar macro utility that can provide one-click access to different command-line features.
 
 ## Features
 
@@ -74,3 +76,8 @@ capture_mode = 'window'
 notification_mode = 'toast'
 filename_prefix = ''
 ```
+
+## Roadmap
+
+- Optional ability to copy the image to the clipboard, either exclusively or in addition to saving to disk.
+- Support for Linux and macOS
