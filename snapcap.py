@@ -2,8 +2,10 @@ import os
 import argparse
 import ctypes
 import datetime
+import io
 import tomllib
 import tkinter as tk
+import win32clipboard
 from ctypes import wintypes
 from pathlib import Path
 
@@ -139,25 +141,44 @@ def save_screenshot(image, output_folder, filename_prefix=""):
     return filepath
 
 
-def show_toast(filepath, duration_ms=2000, position="bottom", thumbnail=False):
+def copy_to_clipboard(image):
+    """Copy a PIL Image to the Windows clipboard as a DIB."""
+    output = io.BytesIO()
+    image.convert("RGB").save(output, format="BMP")
+    # CF_DIB expects the BMP data without the 14-byte BITMAPFILEHEADER.
+    data = output.getvalue()[14:]
+    output.close()
+
+    win32clipboard.OpenClipboard()
+    try:
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
+    finally:
+        win32clipboard.CloseClipboard()
+
+
+def show_toast(filepath, duration_ms=2000, position="bottom", thumbnail=False,
+               image=None, message=None):
     """
     Show a small auto-dismissing notification banner.
-    Clicking it opens the screenshot; it dismisses itself after duration_ms.
+    Clicking it opens the screenshot (if filepath given); it dismisses itself
+    after duration_ms.
 
     Args:
-        filepath:    Full path to the saved screenshot.
+        filepath:    Full path to the saved screenshot, or None if not saved.
         duration_ms: How long to show it before auto-dismissing (milliseconds).
         position:    "bottom" or "top" of the screen.
+        image:       PIL Image to use for the thumbnail when filepath is None.
+        message:     Override toast text.
     """
     root = tk.Tk()
     root.overrideredirect(True)        # no title bar / borders
     root.attributes("-topmost", True)  # always on top
     root.attributes("-alpha", 1.00)    # no transparency
 
-    filename = os.path.basename(filepath)
-
     def open_and_dismiss():
-        os.startfile(filepath)
+        if filepath:
+            os.startfile(filepath)
         root.destroy()
 
     btn_kwargs = dict(
@@ -173,9 +194,14 @@ def show_toast(filepath, duration_ms=2000, position="bottom", thumbnail=False):
         cursor="hand2",
         relief="flat",
     )
-    text = f"\u2714  Screenshot saved \u2014 {filename}"
+    if message is not None:
+        text = message
+    elif filepath:
+        text = f"\u2714  Screenshot saved \u2014 {os.path.basename(filepath)}"
+    else:
+        text = "\u2714  Screenshot copied to clipboard"
     if thumbnail:
-        img = Image.open(filepath)
+        img = Image.open(filepath) if filepath else image.copy()
         img.thumbnail((192, 192))
         photo = ImageTk.PhotoImage(img)
         btn = tk.Button(root, text=text, image=photo, compound="left", **btn_kwargs)
@@ -247,35 +273,6 @@ def prompt_filename_prefix(default=""):
     return result if result is not None else default
 
 
-def copy_to_clipboard(image):
-    """Copy a PIL Image to the Windows clipboard as CF_DIB."""
-    import io
-    output = io.BytesIO()
-    # BMP with 14-byte file header stripped = DIB
-    image.convert("RGB").save(output, format="BMP")
-    data = output.getvalue()[14:]
-    output.close()
-
-    CF_DIB = 8
-    GMEM_MOVEABLE = 0x0002
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
-
-    if not user32.OpenClipboard(0):
-        raise RuntimeError("Could not open clipboard.")
-    try:
-        user32.EmptyClipboard()
-        h = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
-        if not h:
-            raise RuntimeError("GlobalAlloc failed.")
-        ptr = kernel32.GlobalLock(h)
-        ctypes.memmove(ptr, data, len(data))
-        kernel32.GlobalUnlock(h)
-        user32.SetClipboardData(CF_DIB, h)
-    finally:
-        user32.CloseClipboard()
-
-
 def play_beep():
     import winsound
     winsound.Beep(1000, 150)
@@ -291,8 +288,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--init", action="store_true")
     parser.add_argument("--prompt-prefix", action="store_true")
-    parser.add_argument("-d", "--disk", action="store_true", help="save screenshot to disk")
-    parser.add_argument("-c", "--clipboard", action="store_true", help="copy screenshot to clipboard")
+    parser.add_argument("-d", "--disk", action="store_true",
+                        help="save screenshot to disk (default if neither -d nor -c given)")
+    parser.add_argument("-c", "--clipboard", action="store_true",
+                        help="copy screenshot to clipboard")
     args = parser.parse_args()
 
     config_changed = False
@@ -324,29 +323,31 @@ if __name__ == "__main__":
         if image is None:
             print("Capture cancelled.")
             raise SystemExit(0)
-        # Default to disk if neither flag is passed (backwards compatible).
-        to_disk = args.disk or not args.clipboard
-        to_clipboard = args.clipboard
-
-        if to_clipboard:
-            copy_to_clipboard(image)
-            print("Screenshot copied to clipboard.")
+        # Default to disk if neither flag is specified (backwards compatible).
+        save_to_disk = args.disk or not args.clipboard
+        copy_to_clip = args.clipboard
 
         saved_to = None
-        if to_disk:
+        if save_to_disk:
             prefix = config.get("filename_prefix", "")
             if args.prompt_prefix:
                 prefix = prompt_filename_prefix(default=prefix)
                 set_filename_prefix(prefix)
             saved_to = save_screenshot(image, config["output_folder"], prefix)
             print(f"Screenshot saved: {saved_to}")
+        if copy_to_clip:
+            copy_to_clipboard(image)
+            print("Screenshot copied to clipboard")
 
         notification_mode = config.get("notification_mode", "toast")
-        # Only show or play notifications if saving to disk
-        if saved_to is not None:
-            if notification_mode == "beep":
-                play_beep()
-            elif notification_mode == "toast":
-                show_toast(saved_to)
-            elif notification_mode == "toast_thumbnail":
-                show_toast(saved_to, thumbnail=True)
+        if notification_mode == "beep":
+            play_beep()
+        elif notification_mode in ("toast", "toast_thumbnail"):
+            thumbnail = notification_mode == "toast_thumbnail"
+            if saved_to and copy_to_clip:
+                show_toast(saved_to, thumbnail=thumbnail,
+                           message=f"\u2714  Saved & copied \u2014 {os.path.basename(saved_to)}")
+            elif saved_to:
+                show_toast(saved_to, thumbnail=thumbnail)
+            else:
+                show_toast(None, thumbnail=thumbnail, image=image)
