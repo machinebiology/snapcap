@@ -247,6 +247,35 @@ def prompt_filename_prefix(default=""):
     return result if result is not None else default
 
 
+def copy_to_clipboard(image):
+    """Copy a PIL Image to the Windows clipboard as CF_DIB."""
+    import io
+    output = io.BytesIO()
+    # BMP with 14-byte file header stripped = DIB
+    image.convert("RGB").save(output, format="BMP")
+    data = output.getvalue()[14:]
+    output.close()
+
+    CF_DIB = 8
+    GMEM_MOVEABLE = 0x0002
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+
+    if not user32.OpenClipboard(0):
+        raise RuntimeError("Could not open clipboard.")
+    try:
+        user32.EmptyClipboard()
+        h = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
+        if not h:
+            raise RuntimeError("GlobalAlloc failed.")
+        ptr = kernel32.GlobalLock(h)
+        ctypes.memmove(ptr, data, len(data))
+        kernel32.GlobalUnlock(h)
+        user32.SetClipboardData(CF_DIB, h)
+    finally:
+        user32.CloseClipboard()
+
+
 def play_beep():
     import winsound
     winsound.Beep(1000, 150)
@@ -262,6 +291,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--init", action="store_true")
     parser.add_argument("--prompt-prefix", action="store_true")
+    parser.add_argument("-d", "--disk", action="store_true", help="save screenshot to disk")
+    parser.add_argument("-c", "--clipboard", action="store_true", help="copy screenshot to clipboard")
     args = parser.parse_args()
 
     config_changed = False
@@ -293,16 +324,29 @@ if __name__ == "__main__":
         if image is None:
             print("Capture cancelled.")
             raise SystemExit(0)
-        prefix = config.get("filename_prefix", "")
-        if args.prompt_prefix:
-            prefix = prompt_filename_prefix(default=prefix)
-            set_filename_prefix(prefix)
-        saved_to = save_screenshot(image, config["output_folder"], prefix)
-        print(f"Screenshot saved: {saved_to}")
+        # Default to disk if neither flag is passed (backwards compatible).
+        to_disk = args.disk or not args.clipboard
+        to_clipboard = args.clipboard
+
+        if to_clipboard:
+            copy_to_clipboard(image)
+            print("Screenshot copied to clipboard.")
+
+        saved_to = None
+        if to_disk:
+            prefix = config.get("filename_prefix", "")
+            if args.prompt_prefix:
+                prefix = prompt_filename_prefix(default=prefix)
+                set_filename_prefix(prefix)
+            saved_to = save_screenshot(image, config["output_folder"], prefix)
+            print(f"Screenshot saved: {saved_to}")
+
         notification_mode = config.get("notification_mode", "toast")
-        if notification_mode == "beep":
-            play_beep()
-        elif notification_mode == "toast":
-            show_toast(saved_to)
-        elif notification_mode == "toast_thumbnail":
-            show_toast(saved_to, thumbnail=True)
+        # Only show or play notifications if saving to disk
+        if saved_to is not None:
+            if notification_mode == "beep":
+                play_beep()
+            elif notification_mode == "toast":
+                show_toast(saved_to)
+            elif notification_mode == "toast_thumbnail":
+                show_toast(saved_to, thumbnail=True)
