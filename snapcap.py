@@ -90,7 +90,7 @@ def show_toast(filepath, duration_ms=2000, position="bottom", thumbnail=False):
     text = f"\u2714  Screenshot saved \u2014 {filename}"
     if thumbnail:
         img = Image.open(filepath)
-        img.thumbnail((256, 256))
+        img.thumbnail((192, 192))
         photo = ImageTk.PhotoImage(img)
         btn = tk.Button(root, text=text, image=photo, compound="left", **btn_kwargs)
         btn.image = photo  # keep reference
