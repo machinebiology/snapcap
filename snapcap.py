@@ -7,7 +7,7 @@ import tkinter as tk
 from ctypes import wintypes
 from pathlib import Path
 
-from PIL import Image, ImageGrab, ImageTk
+from PIL import Image, ImageEnhance, ImageGrab, ImageTk
 
 CONFIG_PATH = Path(__file__).resolve().parent / "config.toml"
 
@@ -30,8 +30,94 @@ def get_active_window_rect():
     return rect.left, rect.top, rect.right, rect.bottom
 
 
+def select_rect_interactively(full_image):
+    """Show a dimmed fullscreen overlay and let the user drag-select a rectangle.
+
+    Returns (left, top, right, bottom) in `full_image` pixel coordinates, or
+    None if the user cancels (Escape) or makes a zero-size selection.
+    """
+    # Virtual screen origin — needed because ImageGrab(all_screens=True) returns
+    # an image whose (0,0) is the top-left of the virtual screen, which can be
+    # negative on multi-monitor setups, while Tk fullscreen uses primary screen.
+    SM_XVIRTUALSCREEN = 76
+    SM_YVIRTUALSCREEN = 77
+    SM_CXVIRTUALSCREEN = 78
+    SM_CYVIRTUALSCREEN = 79
+    gsm = ctypes.windll.user32.GetSystemMetrics
+    vx, vy = gsm(SM_XVIRTUALSCREEN), gsm(SM_YVIRTUALSCREEN)
+    vw, vh = gsm(SM_CXVIRTUALSCREEN), gsm(SM_CYVIRTUALSCREEN)
+
+    dimmed = ImageEnhance.Brightness(full_image).enhance(0.5)
+
+    root = tk.Tk()
+    root.overrideredirect(True)
+    root.attributes("-topmost", True)
+    root.geometry(f"{vw}x{vh}+{vx}+{vy}")
+    root.config(cursor="crosshair")
+
+    canvas = tk.Canvas(root, width=vw, height=vh, highlightthickness=0, bd=0)
+    canvas.pack()
+
+    dim_photo = ImageTk.PhotoImage(dimmed)
+    canvas.create_image(0, 0, anchor="nw", image=dim_photo)
+
+    state = {"start": None, "rect_id": None, "img_id": None, "photo": None, "result": None}
+
+    def on_press(event):
+        state["start"] = (event.x, event.y)
+
+    def on_drag(event):
+        if state["start"] is None:
+            return
+        x0, y0 = state["start"]
+        x1, y1 = event.x, event.y
+        lx, rx = sorted((x0, x1))
+        ty, by = sorted((y0, y1))
+        if state["img_id"] is not None:
+            canvas.delete(state["img_id"])
+            state["img_id"] = None
+        if rx > lx and by > ty:
+            crop = full_image.crop((lx, ty, rx, by))
+            photo = ImageTk.PhotoImage(crop)
+            state["photo"] = photo  # keep reference
+            state["img_id"] = canvas.create_image(lx, ty, anchor="nw", image=photo)
+        if state["rect_id"] is None:
+            state["rect_id"] = canvas.create_rectangle(lx, ty, rx, by, outline="white", width=1)
+        else:
+            canvas.coords(state["rect_id"], lx, ty, rx, by)
+
+    def on_release(event):
+        if state["start"] is None:
+            root.destroy()
+            return
+        x0, y0 = state["start"]
+        x1, y1 = event.x, event.y
+        lx, rx = sorted((x0, x1))
+        ty, by = sorted((y0, y1))
+        if rx > lx and by > ty:
+            state["result"] = (lx, ty, rx, by)
+        root.destroy()
+
+    def on_escape(event):
+        root.destroy()
+
+    canvas.bind("<ButtonPress-1>", on_press)
+    canvas.bind("<B1-Motion>", on_drag)
+    canvas.bind("<ButtonRelease-1>", on_release)
+    root.bind("<Escape>", on_escape)
+
+    root.mainloop()
+    return state["result"]
+
+
 def capture_screenshot(capture_mode="window"):
     """Capture the active window or full screen and return a PIL Image."""
+    if capture_mode == "rect":
+        full = ImageGrab.grab(bbox=None, all_screens=True)
+        rect = select_rect_interactively(full)
+        if rect is None:
+            return None
+        return full.crop(rect)
     # bbox=None tells ImageGrab to capture the full virtual screen
     bbox = get_active_window_rect() if capture_mode == "window" else None
     # all_screens=True ensures multi-monitor setups are handled correctly
@@ -168,7 +254,7 @@ def play_beep():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-folder")
-    parser.add_argument("--capture-mode", choices=["window", "screen"])
+    parser.add_argument("--capture-mode", choices=["window", "screen", "rect"])
     parser.add_argument(
         "--notification-mode",
         choices=["toast", "toast_thumbnail", "beep", "none"],
@@ -203,6 +289,9 @@ if __name__ == "__main__":
         config = load_config()
         # Capture first so the prompt dialog doesn't appear in the screenshot.
         image = capture_screenshot(config.get("capture_mode", "window"))
+        if image is None:
+            print("Capture cancelled.")
+            raise SystemExit(0)
         prefix = config.get("filename_prefix", "")
         if args.prompt_prefix:
             prefix = prompt_filename_prefix(default=prefix)
